@@ -1,0 +1,102 @@
+serverFiles:
+  alerting_rules.yml:
+    groups:
+      - name: kafka
+        rules:
+          - alert: OfflineReplicaCount
+            expr: kafka_server_replicamanager_value{name="OfflineReplicaCount"} > 0
+            for: 40s
+            labels:
+              severity: warning
+            annotations:
+              summary: 'Kafka Offline Partitions'
+              description: 'There are {{ $value }} Offline Partitions on Cluster: {{ $labels.clusterId }}, Pod {{ $labels.kubernetes_pod_name }}'
+          - alert: UnderReplicatedPartitions
+            expr: kafka_server_replicamanager_value{name="UnderReplicatedPartitions"} > 0
+            for: 60s
+            labels:
+              severity: warning
+            annotations:
+              summary: 'Kafka Under Replicated Partitions'
+              description: 'There are {{ $value }} Under Replicated Partitions on Cluster: {{ $labels.clusterId }}, Pod: {{ $labels.kubernetes_pod_name }}'
+          - alert: UnderMinIsrPartitionCount
+            expr: kafka_server_replicamanager_value{name="UnderMinIsrPartitionCount"} > 0
+            for: 50s
+            labels:
+              severity: warning
+            annotations:
+              summary: 'Kafka Under Min ISR partitions'
+              description: 'There are {{ $value }} partitions under the Min ISR on Cluster: {{ $labels.clusterId }}, Pod: {{ $labels.kubernetes_pod_name }}'
+          - alert: ActiveControllerCount
+            expr: sum(kafka_controller_kafkacontroller_value{name="ActiveControllerCount"}) by (type,clusterId) != 1
+            for: 20s
+            labels:
+              severity: warning
+            annotations:
+              summary: 'Kafka Abnormal Controller State'
+              description: 'There are {{ $value }} Active Controllers in the Cluster: {{ $labels.clusterId }}'
+          - alert: DiskPercentUsed
+            expr: io_confluent_caas_volumemetrics_percentused > 60
+            for: 300s
+            labels:
+              severity: warning
+            annotations:
+              summary: 'Kafka High Disk Usage'
+              description: 'High Disk Usage % {{ $value }} for Cluster: {{ $labels.clusterId }}, Pod: {{ $labels.kubernetes_pod_name }} '
+          - alert: CPUPercentUsed
+            #expr: ((avg by(pod) (rate(container_cpu_usage_seconds_total{namespace="confluent-rbac", container!="POD", container!="", pod!=""}[5m])) * 100)) > 25
+            expr: sum(rate(container_cpu_usage_seconds_total{namespace="confluent-rbac", container!="POD", container!="", pod!=""}[2m])) by (pod) * 100 > 65
+            for: 120s
+            labels:
+              severity: warning
+            annotations:
+              summary: 'Kafka High CPU Usage'
+              description: 'High CPU Usage % {{ $value }} for Cluster Namespace: {{ $labels.namespace }}, Pod: {{ $labels.pod }} '
+          - alert: MemoryPercentUsed
+            expr: (sum(container_memory_working_set_bytes{namespace="confluent-rbac",container!="POD", container!=""}) BY (pod) / sum(container_spec_memory_limit_bytes{namespace="confluent-rbac",container!="POD", container!=""} > 0) BY (pod) * 100) > 70
+            for: 120s
+            labels:
+              severity: warning
+            annotations:
+              summary: 'Kafka High Memory Usage'
+              description: 'High Memory Usage % {{ $value }} for Cluster Namespace: {{ $labels.namespace }}, Pod: {{ $labels.pod }} '
+          - alert: ContainerRestarts
+            expr: delta(kube_pod_container_status_restarts_total{namespace="confluent-rbac"}[1h]) >= 1
+            for: 30s
+            labels:
+              severity: critical
+            annotations:
+              summary: 'Kafka Container Restarts'
+              description: 'Kafka Container Restarts = {{ $value }} for Cluster Namespace: {{ $labels.namespace }}, Pod: {{ $labels.pod }} '
+          - alert: KafkaContainersDown
+            expr: absent(container_last_seen{namespace="confluent-rbac", container!="POD", container!=""})
+            for: 5m
+            labels:
+              severity: major
+            annotations:
+              summary: 'Kafka Containers Absent'
+              description: 'kafka containers have been down/absent for 5 minutes'
+          - alert: MonitoringProblem
+            expr: up{kubernetes_namespace=~"confluent-.+"} == 0
+            for: 3m
+            labels:
+              severity: major
+            annotations:
+              summary: 'Prometheus unable to scrape metrics from Cluster {{ $labels.kubernetes_namespace }}, Pod {{ $labels.kubernetes_pod_name }}'
+              description: 'Prometheus unable to scrape metrics from Cluster {{ $labels.kubernetes_namespace }}, Pod {{ $labels.kubernetes_pod_name }}'
+          - alert: ZookeeperAvgRequestLatency
+            expr: ({__name__=~"org_apache_zookeeperservice_replicatedserver_.*_avgrequestlatency",kubernetes_pod_name=~"zookeeper-[0-9]+"}) > 10
+            for: 10s
+            labels:
+              severity: warning
+            annotations:
+              summary: 'Zookeeper average request latency'
+              description: 'The average request latency is {{ $value }} on Cluster {{ $labels.kubernetes_namespace }}, Pod {{ $labels.kubernetes_pod_name }}'
+          - alert: ZookeeperDisconnectsPerSec
+            expr: kafka_server_sessionexpirelistener_count{name="ZooKeeperDisconnectsPerSec"} > 0
+            for: 60s
+            labels:
+              severity: major
+            annotations:
+              summary: 'Zookeeper Disconnects Per Sec'
+              description: 'Zookeeper Disconnects Per Sec is {{ $value }} on Cluster {{ $labels.kubernetes_namespace }}, Pod {{ $labels.kubernetes_pod_name }}'
